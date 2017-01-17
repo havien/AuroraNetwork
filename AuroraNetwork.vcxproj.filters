@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Winsock">
+      <UniqueIdentifier>{0d6da288-6220-426d-92d0-6d6e82d013b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Network">
+      <UniqueIdentifier>{5bcd487a-4ff1-4777-ae95-4a97098efa81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Define">
+      <UniqueIdentifier>{6f076376-084a-4e0b-82c2-99b935f4b69a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BaseSocket">
+      <UniqueIdentifier>{51fee366-3f1d-4457-a941-156ca9ec9e40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Packet">
+      <UniqueIdentifier>{524cabd6-f916-4a30-bbfb-832ed60a04d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Winsock\EventSelect">
+      <UniqueIdentifier>{1427254d-1e53-4601-8b9f-0150958008bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include">
+      <UniqueIdentifier>{d7bc6c0a-7545-45b5-be55-276aab0289ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IOCP">
+      <UniqueIdentifier>{10df7b64-130e-48e1-bc3e-59291c4111f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="EventSelect">
+      <UniqueIdentifier>{ca02d260-a41f-491b-bede-18fb2be16138}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="WinsockManager.h">
+      <Filter>Winsock</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkManager.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkDefine.h">
+      <Filter>Define</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseSocket.h">
+      <Filter>BaseSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="AuroraIOCP.h">
+      <Filter>IOCP</Filter>
+    </ClInclude>
+    <ClInclude Include="AuroraIOCPWorker.h">
+      <Filter>IOCP</Filter>
+    </ClInclude>
+    <ClInclude Include="AuroraEventSelectClient.h">
+      <Filter>EventSelect</Filter>
+    </ClInclude>
+    <ClInclude Include="AuroraEventSelectServer.h">
+      <Filter>EventSelect</Filter>
+    </ClInclude>
+    <ClInclude Include="PacketBase.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="WinsockManager.cpp">
+      <Filter>Winsock</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkManager.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseSocket.cpp">
+      <Filter>BaseSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="AuroraIOCP.cpp">
+      <Filter>IOCP</Filter>
+    </ClCompile>
+    <ClCompile Include="AuroraIOCPWorker.cpp">
+      <Filter>IOCP</Filter>
+    </ClCompile>
+    <ClCompile Include="AuroraEventSelectClient.cpp">
+      <Filter>EventSelect</Filter>
+    </ClCompile>
+    <ClCompile Include="AuroraEventSelectServer.cpp">
+      <Filter>EventSelect</Filter>
+    </ClCompile>
+    <ClCompile Include="PacketBase.cpp">
+      <Filter>Packet</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
