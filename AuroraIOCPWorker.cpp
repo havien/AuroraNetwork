@@ -7,6 +7,7 @@
 
 #include "NetworkManager.h"
 #include "AuroraIOCPWorker.h"
+#include "PacketBase.h"
 
 using namespace Aurora;
 using namespace Aurora::Network;
@@ -96,7 +97,7 @@ UInt32 IOCPWorker::AcceptWorker( void* pArgs )
 						pThis->_pIOCPObject->GetClientCount() );
 
 		// Associate IOCP <-> clientSocket.
-		pThis->_pIOCPObject->Associate( ClientSocket, static_cast<unsigned long>( ClientSocket ) );
+		pThis->_pIOCPObject->Associate( ClientSocket, static_cast<UInt64>( ClientSocket ) );
 
 		auto pOverlappedExtra = pThis->_pIOCPObject->GetLastRecvOverlappedData();
 		if( pOverlappedExtra )
@@ -118,13 +119,15 @@ UInt32 IOCPWorker::GQCSWorker( void* pArgs )
 		return 0;
 	}
 
-	auto pThis = (IOCPWorker *)pArgs;
+	auto pThis = reinterpret_cast<IOCPWorker*>(pArgs);
 	if( false == pThis->_pIOCPObject->IsCreatedIOCP() )
 	{
 		return 0;
 	}
 
-	while( pThis->_runningGQCSThread )
+	char* pRemainBuffer = nullptr;
+	int remainBufferSize = 0;
+	while( true == pThis->_runningGQCSThread )
 	{
 		DWORD transferedBytes = 0;
 		UInt64 CompletionKey = 0;
@@ -139,22 +142,22 @@ UInt32 IOCPWorker::GQCSWorker( void* pArgs )
 
 		if( FALSE == GQCSResult )
 		{
-			auto ErrorCode = WSAGetLastError();
+			auto errorCode = WSAGetLastError();
 			if( nullptr == pOverlapped )
 			{
-				PRINT_FILE_LOG( L"[GQCS Error] %d\n", ErrorCode );
+				PRINT_FILE_LOG( L"[GQCS Error] %d\n", errorCode );
 			}
 			else
 			{
-				PRINT_NORMAL_LOG( L"[GQCS Error] I/O Failed! [%d]\n", ErrorCode );
+				PRINT_NORMAL_LOG( L"[GQCS Error] I/O Failed! [%d]\n", errorCode );
 
-				if( WSAENOTSOCK == ErrorCode )
+				if( WSAENOTSOCK == errorCode )
 				{
 					// 이미 닫은 소켓의 OVERLAPPED 데이터가 살아있음.
 					PRINT_FILE_LOG( L"[GQCS Error] WSAENOTSOCK, (%d)\n", clientSocket );
 				}
 
-				if( ERROR_NETNAME_DELETED == ErrorCode )
+				if( ERROR_NETNAME_DELETED == errorCode )
 				{
 					// 이미 통신이 종료된 패킷에 통신을 시도. 클라가 먼저 커넥션을 끊었을 가능성이 농후함.
 					// Force Close Client Connection.
@@ -163,11 +166,13 @@ UInt32 IOCPWorker::GQCSWorker( void* pArgs )
 				}
 
 				// non-paged pool limit. 
-				if( WSAENOBUFS == ErrorCode )
+				if( WSAENOBUFS == errorCode )
 				{
 					// 운이 좋아야 여기에 걸린다.
 					// Force Close Client Connection.
-					PRINT_FILE_LOG( L"[GQCS Error] Non-Paged Pool LIMIT!! WSAENOBUFS, (%d)\n", clientSocket );
+					PRINT_FILE_LOG( L"[GQCS Error] Non-Paged Pool LIMIT!! WSAENOBUFS, (%d)\n", 
+									clientSocket );
+
 					pThis->ForceCloseClient( clientSocket );
 				}
 			}
@@ -183,7 +188,8 @@ UInt32 IOCPWorker::GQCSWorker( void* pArgs )
 			pThis->ForceCloseClient( clientSocket );
 		}
 
-		auto pOverlappedEX = reinterpret_cast<OverlappedExtra *>( pOverlapped );
+
+		auto pOverlappedEX = reinterpret_cast<OverlappedExtra*>(pOverlapped);
 		switch ( pOverlappedEX->Operation )
 		{
 			case EOverlappedOperation::Send:
@@ -213,32 +219,80 @@ UInt32 IOCPWorker::GQCSWorker( void* pArgs )
 			}
 			case EOverlappedOperation::Recv:
 			{
-				//PRINT_NORMAL_LOG( L"[RequestRecv] Received %d bytes (%S)\n", transferedBytes, pOverlappedEX->WSABuffer.buf );
 				PRINT_NORMAL_LOG( L"[RequestRecv] Received %d bytes\n", transferedBytes );
 
-				// 무조건 recv가 보낸대로 잘 되는게 아니고, 패킷이 뭉쳐서 오거나 순서가 뒤집혀 오는 경우가 있다.
-				// 이런 경우에는 패킷 헤더를 우선 검사해서 정확한 길이를 파싱해서 받아야 한다.
-				// 추후에.....
+				int remainBytes = 0;
+				//int receivedBytes = 0;
 
-				// echo mode.
-				if( true == pThis->GetEchoMode() )
+				if( nullptr != pRemainBuffer )
 				{
-					OverlappedExtra* pSendOverlappedExtra = pThis->_pIOCPObject->GetLastSendOverlappedData();
-					pSendOverlappedExtra->Reset();
-					memcpy( &pSendOverlappedExtra->WSABuffer.buf, &pOverlappedEX->WSABuffer.buf, sizeof(char)* transferedBytes );
-					pSendOverlappedExtra->WSABuffer.len = transferedBytes;
-					pThis->RequestSend( clientSocket, pSendOverlappedExtra );
-				}
-				else
-				{
-					// push buffer to packet parser.
-					pThis->EnqueueRecvBufferAndWakeupParser( &pOverlappedEX->IOCPdata, static_cast<size_t>(transferedBytes) );
+					remainBytes = remainBufferSize;
+					while( 0 < remainBytes )
+					{
+						auto pHeader = reinterpret_cast<PacketHeader*>(pRemainBuffer);
+						if( false == AuroraNetworkManager->ValidatePacket( pHeader ) )
+						{
+							break;
+						}
+
+						auto pClientPacket = reinterpret_cast<ClientPacket*>(pRemainBuffer);
+						if( pClientPacket )
+						{
+							pThis->EnqueuePacket( pClientPacket );
+
+							remainBytes -= pClientPacket->GetSize();
+							pClientPacket += remainBytes;
+						}
+					}
+
+					SAFE_DELETE_ARRAY_POINTER( pRemainBuffer );
 				}
 
-				if( true == pThis->RequestRecv( clientSocket, pOverlappedEX ) )
-				{
+				remainBytes = transferedBytes;
 
+				while( 0 < remainBytes )
+				{
+					auto pHeader = reinterpret_cast<PacketHeader*>(pOverlappedEX->WSABuffer.buf);
+					if( false == AuroraNetworkManager->ValidatePacket( pHeader ) )
+					{
+						break;
+					}
+
+					auto pClientPacket = reinterpret_cast<ClientPacket*>(pOverlappedEX->WSABuffer.buf);
+					if( pClientPacket )
+					{
+						// echo mode.
+						if( true == pThis->GetEchoMode() )
+						{
+							auto pSendOverlappedExtra = pThis->_pIOCPObject->GetLastSendOverlappedData();
+
+							pSendOverlappedExtra->Reset();
+							memcpy( &pSendOverlappedExtra->WSABuffer.buf,
+									&pOverlappedEX->WSABuffer.buf,
+									sizeof( char )* transferedBytes );
+
+							pSendOverlappedExtra->WSABuffer.len = transferedBytes;
+							pThis->RequestSend( clientSocket, pSendOverlappedExtra );
+						}
+						else
+						{
+							pThis->EnqueuePacket( pClientPacket );
+						}
+					}
+
+					remainBytes -= pClientPacket->GetSize();
+					pClientPacket += remainBytes;
 				}
+
+				// 패킷을 다 처리했다고 판단했는데 아직 처리못한 버퍼가 남아있다.
+				if( 0 < remainBytes )
+				{
+					remainBufferSize = remainBytes;
+					pRemainBuffer = new char[remainBufferSize];
+					AuroraStringManager->ClearAndCopy( pRemainBuffer, pOverlappedEX->WSABuffer.buf, remainBytes );
+				}
+
+				pThis->RequestRecv( clientSocket, pOverlappedEX );
 				break;
 			}
 			case EOverlappedOperation::ShutdownIOCP:
@@ -375,13 +429,13 @@ bool IOCPWorker::EnqueueSendBuffer( IOCPData* pIOCPData, size_t length )
 {
 	if( pIOCPData )
 	{
-		OverlappedExtra* pSendOverlappedExtra = _pIOCPObject->GetLastSendOverlappedData();
+		auto pSendOverlappedExtra = _pIOCPObject->GetLastSendOverlappedData();
 		if( pSendOverlappedExtra )
 		{
 			pSendOverlappedExtra->Reset();
 			memcpy( &pSendOverlappedExtra->WSABuffer.buf, &pIOCPData->buffer, length );
 				
-			unsigned long WSABufferLen = static_cast<unsigned long>( length );
+			auto WSABufferLen = static_cast<unsigned long>( length );
 			pSendOverlappedExtra->WSABuffer.len = WSABufferLen;
 				
 			CAutoLockWindows AutoLocker( GetCriticalSection() );
@@ -400,4 +454,24 @@ bool IOCPWorker::EnqueueSendBuffer( IOCPData* pIOCPData, size_t length )
 void IOCPWorker::EnqueueSendBufferAndRequestSend( IOCPData* pIOCPData, size_t length )
 {
 	EnqueueSendBuffer( pIOCPData, length );
+}
+
+void IOCPWorker::EnqueuePacket( ClientPacket* const pPacket )
+{
+	if( nullptr == pPacket )
+	{
+		return;
+	}
+
+	CAutoLockWindows AutoLocker( GetCriticalSection() );
+	{
+		auto pNewPacket = new ClientPacket( pPacket->GetType() );
+		if( nullptr == pNewPacket )
+		{
+			PRINT_NORMAL_LOG( L"[EnqueuePacket] new packet error! pNewPacket is nullptr!\n" );
+		}
+
+		memcpy( (void*)pNewPacket, (void*)pPacket, pPacket->GetSize() );
+		_clientPackets.emplace( pNewPacket );
+	}
 }

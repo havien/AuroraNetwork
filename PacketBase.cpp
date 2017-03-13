@@ -6,8 +6,8 @@ using namespace Aurora::Network;
 
 BasePacket::BasePacket( const UInt16 pType )
 {
+	header.type = pType;
 	CalculateSize();
-	type = pType;
 }
 
 BasePacket::~BasePacket( void )

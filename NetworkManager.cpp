@@ -259,7 +259,6 @@ bool NetworkManager::StartServerNetwork( void )
 		Int32 SocketResult = bind( _listenSocket, (SOCKADDR *)&_listenAddr, sizeof(_listenAddr) );
 		if( SOCKET_ERROR == SocketResult )
 		{
-			//AuroraUtility::CMiscManager::Instance( )->PrintDebugTextToOutputWindow( eLogPrintType_Normal, L"bind() failed with error %d\n", WSAGetLastError( ) );
 			PRINT_NORMAL_LOG( L"bind() failed with error %d\n", WSAGetLastError() );
 			return false;
 		}
@@ -270,7 +269,6 @@ bool NetworkManager::StartServerNetwork( void )
 		SocketResult = listen( _listenSocket, SOMAXCONN );
 		if( SOCKET_ERROR == SocketResult )
 		{
-			//AuroraUtility::CMiscManager::Instance( )->PrintDebugTextToOutputWindow( eLogPrintType_Normal, L"Error listening on socket.\n" );
 			PRINT_NORMAL_LOG( L"Error listening on socket.\n" );
 			return false;
 		}
@@ -296,11 +294,10 @@ bool NetworkManager::AcceptClient( void )
 			return false;
 		}
 
-		Int32 ClientAddrLen = sizeof(_clientAddr);
+		Int32 ClientAddrLen = sizeof( _clientAddr );
 		SOCKET ClientSocket = accept( _listenSocket, (SOCKADDR *)&_clientAddr, &ClientAddrLen );
 		if( INVALID_SOCKET == ClientSocket )
 		{
-			//AuroraUtility::CMiscManager::Instance( )->PrintDebugTextToOutputWindow( eLogPrintType_Normal, L"accept() failed with error %d\n", WSAGetLastError( ) );
 			PRINT_NORMAL_LOG( L"accept() failed with error %d\n", WSAGetLastError() );
 			continue;
 		}
@@ -309,7 +306,8 @@ bool NetworkManager::AcceptClient( void )
 	return true;
 }
 
-bool NetworkManager::SendToClient( const SOCKET &ClientSocket, const char* pSendBuffer, const UInt16 &WishSendingBytes, UInt16 &SendedBytes )
+bool NetworkManager::SendToClient( const SOCKET &ClientSocket, const char* pSendBuffer, 
+								   const UInt16 &WishSendingBytes, UInt16 &SendedBytes )
 {
 	if( ENetworkRunMode::Client  != _runningMode )
 	{
@@ -342,23 +340,24 @@ bool NetworkManager::SendToClient( const SOCKET &ClientSocket, const char* pSend
 	return false;
 }
 
-bool NetworkManager::RecvFromClient( const SOCKET &ClientSocket, char* pReceiveBuffer, const UInt16 &WishReceiveBytes, UInt16 &ReceivedBytes )
+bool NetworkManager::RecvFromClient( const SOCKET &ClientSocket, char* pReceiveBuffer, 
+									 const UInt16 &wishReceiveBytes, UInt16 &ReceivedBytes )
 {
 	if( ENetworkRunMode::Server != _runningMode )
 	{
 		return false;
 	}
 
-	if( 0 >= WishReceiveBytes )
+	if( 0 >= wishReceiveBytes )
 	{
 		//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[RecvFromClient] lower to 0(zero) SendingBytes : %d\n", wishReceiveBytes );
-		PRINT_NORMAL_LOG( L"[RecvFromClient] lower to 0(zero) SendingBytes : %d\n", WishReceiveBytes );
+		PRINT_NORMAL_LOG( L"[RecvFromClient] lower to 0(zero) SendingBytes : %d\n", wishReceiveBytes );
 		return false;
 	}
 
 	if( pReceiveBuffer )
 	{
-		Int32 iResult = recv( ClientSocket, pReceiveBuffer, WishReceiveBytes, 0 );
+		Int32 iResult = recv( ClientSocket, pReceiveBuffer, wishReceiveBytes, 0 );
 		if( SOCKET_ERROR == iResult )
 		{
 			//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[RecvFromClient] Recv failed with error: %d\n", WSAGetLastError() );
@@ -373,28 +372,28 @@ bool NetworkManager::RecvFromClient( const SOCKET &ClientSocket, char* pReceiveB
 	return false;
 }
 
-bool NetworkManager::BroadcastToClient( const UInt16 ClientCount, BaseSocket *pClientSocketArray, const char* pSendBuffer,
-											const UInt16 &WishSendingBytes, UInt16 &SendedBytes )
+bool NetworkManager::BroadcastToClient( const UInt16 ClientCount, BaseSocket* pClientSocketArray, const char* pSendBuffer,
+										const UInt16 &wishSendingBytes, UInt16 &SendedBytes )
 {
 	if( ENetworkRunMode::Server != _runningMode )
 	{
 		return false;
 	}
 
-	if( 0 >= WishSendingBytes )
+	if( 0 >= wishSendingBytes )
 	{
 		//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[BroadcastToClient] lower to 0(zero) SendingBytes : %d\n", wishSendBytes );
-		PRINT_NORMAL_LOG( L"[BroadcastToClient] lower to 0(zero) SendingBytes : %d\n", WishSendingBytes );
+		PRINT_NORMAL_LOG( L"[BroadcastToClient] lower to 0(zero) SendingBytes : %d\n", wishSendingBytes );
 		return false;
 	}
 
-	if( pClientSocketArray && pSendBuffer&& ( 0 < strlen( pSendBuffer ) ) )
+	if( pClientSocketArray && pSendBuffer && ( 0 < strlen( pSendBuffer ) ) )
 	{
 		bool TrySend = false;
 		for ( auto Current = 0; Current < ClientCount; ++Current )
 		{
 			SOCKET CurSocket = pClientSocketArray[Current].GetSocket();
-			Int32 sendResult = send( CurSocket, pSendBuffer, WishSendingBytes, 0 );
+			Int32 sendResult = send( CurSocket, pSendBuffer, wishSendingBytes, 0 );
 			if( SOCKET_ERROR == sendResult )
 			{
 				//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[BroadcastToClient] Send failed with error: %d\n", WSAGetLastError() );
@@ -434,7 +433,7 @@ void NetworkManager::ForceCloseSocket( SOCKET GetSocket )
 	lingerOption.l_onoff = 1;
 	lingerOption.l_linger = 0;
 
-	/// no TCP TIME_WAIT
+	// no TCP TIME_WAIT
 	if( SOCKET_ERROR == setsockopt( GetSocket, SOL_SOCKET, SO_LINGER, (char*)&lingerOption, sizeof( LINGER ) ) )
 	{
 		PRINT_NORMAL_LOG( L"[ForceCloseSocket] setsockopt linger option error: %d\n", GetLastError() );
@@ -442,4 +441,23 @@ void NetworkManager::ForceCloseSocket( SOCKET GetSocket )
 	}
 
 	closesocket( GetSocket );
+}
+
+bool NetworkManager::ValidatePacket( PacketHeader const* pHeader )
+{
+	if( nullptr == pHeader )
+	{
+		PRINT_NORMAL_LOG( L"[RequestRecv] invalid packet! pHeader is nullptr!!" );
+		return false;
+	}
+
+	if( static_cast<UInt16>(EPacketOperation::None) >= pHeader->type ||
+		static_cast<UInt16>(EPacketOperation::Max) < pHeader->type )
+	{
+		// invalid packet.
+		PRINT_NORMAL_LOG( L"[RequestRecv] invalid packet! type:%d, size:%d\n", pHeader );
+		return false;
+	}
+
+	return true;
 }

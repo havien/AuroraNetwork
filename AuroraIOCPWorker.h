@@ -11,6 +11,10 @@ namespace Aurora
 {
 	namespace Network
 	{
+		struct PacketHeader;
+		class BasePacket;
+		class ClientPacket;
+
 		class IOCPWorker
 		{
 		public:
@@ -27,18 +31,19 @@ namespace Aurora
 			bool InitIOCPServer( UInt16 workerThreadCount );
 			void Shutdown( void );
 
-			bool RequestRecv( SOCKET socket, OverlappedExtra *pReadOverlappedExtra );
-			bool RequestSend( SOCKET socket, OverlappedExtra *pOverlappedExtra );
+			bool RequestRecv( SOCKET socket, OverlappedExtra* pReadOverlappedExtra );
+			bool RequestSend( SOCKET socket, OverlappedExtra* pOverlappedExtra );
 
 			bool RequestShutdown( void );
 			void ForceCloseClient( SOCKET socket );
 
-			inline bool EnqueueRecvBuffer( IOCPData *pIOCPData, size_t BufferLength );
-			inline bool EnqueueSendBuffer( IOCPData *pIOCPData, size_t BufferLength );
+			bool EnqueueRecvBuffer( IOCPData* pIOCPData, size_t BufferLength );
+			bool EnqueueSendBuffer( IOCPData* pIOCPData, size_t BufferLength );
 
-			void EnqueueRecvBufferAndWakeupParser( IOCPData *pIOCPData, size_t BufferLength );
-			void EnqueueSendBufferAndRequestSend( IOCPData *pIOCPData, size_t BufferLength );
+			void EnqueueRecvBufferAndWakeupParser( IOCPData* pIOCPData, size_t BufferLength );
+			void EnqueueSendBufferAndRequestSend( IOCPData* pIOCPData, size_t BufferLength );
 
+			void EnqueuePacket( ClientPacket* const pPacket );
 
 			inline CRITICAL_SECTION* GetCriticalSection( void ) { return &_criticalSection; }
 
@@ -57,6 +62,11 @@ namespace Aurora
 				_pParserWaitHandle = const_cast<HANDLE*>(pHandle); 
 			}
 
+			inline bool IsRunningGQCS( void ) 
+			{
+				return _runningGQCSThread;  
+			}
+
 			inline void StopAcceptThread( void ) { _runningAcceptThread = false; }
 			inline void StopQGCSThread( void ) { _runningGQCSThread = false; }
 		private:
@@ -72,6 +82,8 @@ namespace Aurora
 
 			CQueue<IOCPData*>* _pParserQueue;
 			CQueue<IOCPData*> _waitSendQueue;
+
+			std::queue<ClientPacket*> _clientPackets;
 
 			HANDLE* _pParserWaitHandle;
 		};

@@ -5,6 +5,7 @@
 #include "../AuroraUtility/AuroraSingleton.h"
 
 #include "Includes.h"
+#include "PacketBase.h"
 #include "BaseSocket.h"
 
 namespace Aurora
@@ -41,8 +42,11 @@ namespace Aurora
 			bool StartServerNetwork( void );
 
 			bool AcceptClient( void );
-			bool SendToClient( const SOCKET &ClientSocket, const char* pSendBuffer, const UInt16 &WishSendingBytes, UInt16 &SendedBytes );
-			bool RecvFromClient( const SOCKET &ClientSocket, char* pReceiveBuffer, const UInt16 &WishReceiveBytes, UInt16 &ReceivedBytes );
+			bool SendToClient( const SOCKET &ClientSocket, const char* pSendBuffer, 
+							   const UInt16 &WishSendingBytes, UInt16 &SendedBytes );
+
+			bool RecvFromClient( const SOCKET &ClientSocket, char* pReceiveBuffer, 
+								 const UInt16 &WishReceiveBytes, UInt16 &ReceivedBytes );
 
 			inline void StopServer( void ) { _isRunningServer = false; }
 
@@ -50,6 +54,8 @@ namespace Aurora
 
 			bool CloseSocket( SOCKET* pSocket );
 			void ForceCloseSocket( SOCKET GetSocket );
+
+			bool ValidatePacket( PacketHeader const* pHeader );
 
 			inline const ENetworkRunMode GetNetworkMode( void ) const { return _runningMode; }
 			inline void SetNetworkMode( ENetworkRunMode NetworkMode ) { _runningMode = NetworkMode; }

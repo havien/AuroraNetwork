@@ -26,13 +26,6 @@ namespace Aurora
 			Max,
 		};
 
-		enum class EPacketType : Byte
-		{
-			Client = 0,
-			Server,
-			Max,
-		};
-
 		enum class ECommonResult : Byte
 		{
 			OK = 0,

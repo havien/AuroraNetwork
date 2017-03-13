@@ -43,13 +43,13 @@ void OverlappedExtra::Reset( void )
 	WSABuffer.len = SUPER_BUFFER_LEN;
 }
 
-AuroraIOCP::AuroraIOCP() :
+AuroraIOCP::AuroraIOCP( void ) :
 _handle( INVALID_HANDLE_VALUE ),
 _created( false ),
 _clientCount( 0 )
 {
-	memset( m_RecvOverlappeds, 0, sizeof(OverlappedExtra)* MAX_CLIENT_COUNT );
-	memset( m_SendOverlappeds, 0, sizeof(OverlappedExtra)* MAX_CLIENT_COUNT );
+	memset( m_RecvOverlappeds, 0, sizeof(OverlappedExtra) * MAX_CLIENT_COUNT );
+	memset( m_SendOverlappeds, 0, sizeof(OverlappedExtra) * MAX_CLIENT_COUNT );
 }
 
 AuroraIOCP::~AuroraIOCP()
