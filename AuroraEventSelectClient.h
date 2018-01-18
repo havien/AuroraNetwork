@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../AuroraUtility/AuroraDefine.h"
-#include "../AuroraUtility/Queue.h"
+#include "../Utility/AuroraDefine.h"
+#include "../Utility/Queue.h"
 
 #include "Includes.h"
 #include "BaseSocket.h"
@@ -12,8 +12,8 @@ namespace Aurora
 	{
 		struct EventSelectClientData
 		{
-			EventSelectClientData( void ) { }
-			~EventSelectClientData( void ) { }
+			explicit EventSelectClientData(){ }
+			~EventSelectClientData(){ }
 
 			BaseSocket ClientSockets[WSA_MAXIMUM_WAIT_EVENTS];
 			WSAEVENT ClientEvents[WSA_MAXIMUM_WAIT_EVENTS];
@@ -23,10 +23,10 @@ namespace Aurora
 
 		struct EventSelect
 		{
-			EventSelect( const SOCKET* pSocket, ENetworkRunMode RunMode );
-			~EventSelect( void );
+			explicit EventSelect( const SOCKET* pSocket, ENetworkRunMode RunMode );
+			~EventSelect();
 
-			bool StartEventSelect( const SOCKET *pSocket, ENetworkRunMode RunMode );
+			bool StartEventSelect( const SOCKET* pSocket, ENetworkRunMode RunMode );
 
 			SOCKET _eventSocket;
 			WSAEVENT _eventObject;
@@ -35,12 +35,12 @@ namespace Aurora
 		class EventSelectClient
 		{
 		public:
-			EventSelectClient( const SOCKET* pSocket );
-			~EventSelectClient( void );
+			explicit EventSelectClient( const SOCKET* pSocket );
+			~EventSelectClient();
 		public:
 			static UInt32 __stdcall CommunicationWithServer( void* pArgs );
 			
-			char* GetFrontReceivedPacket( void );
+			char* GetFrontReceivedPacket();
 			void AddReceivedPacket( char* pPacket );
 
 			inline void SetRecvBufferQueue( CQueue<char*>* pRecvBufferQueue )
@@ -56,7 +56,7 @@ namespace Aurora
 				_runningCommunicationThread = false; 
 			}
 
-			inline HANDLE GetReadWriteHandle( void ) const 
+			inline HANDLE GetReadWriteHandle() const 
 			{
 				return _readWriteWaitHandle; 
 			}
@@ -71,7 +71,7 @@ namespace Aurora
 				return &_receivedPacketList; 
 			}
 
-			inline const bool GetEchoMode( void ) const
+			inline const bool GetEchoMode() const
 			{ 
 				return _echoMode; 
 			}
@@ -86,7 +86,7 @@ namespace Aurora
 				_saveReceivedPacket = value;
 			}
 
-			inline const bool SaveReceivedPacketMode( void ) const
+			inline const bool SaveReceivedPacketMode() const
 			{
 				return _saveReceivedPacket; 
 			}

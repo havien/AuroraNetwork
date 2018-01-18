@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../AuroraUtility/AuroraDefine.h"
-#include "../AuroraUtility/AuroraSingleton.h"
-#include "../AuroraUtility/Queue.h"
+#include "../Utility/AuroraDefine.h"
+#include "../Utility/AuroraSingleton.h"
+#include "../Utility/Queue.h"
 
 #include "Includes.h"
 
 #include "AuroraIOCP.h"
-#include "AuroraIOCPWorker.h"
+#include "IOCPWorker.h"
 
 namespace Aurora
 {
@@ -20,29 +20,51 @@ namespace Aurora
 		{
 			friend class Singleton<WinsockManager>;
 		private:
-			WinsockManager( void );
-			NON_COPYABLE( WinsockManager );
+			WinsockManager();
 		public:
-			virtual ~WinsockManager( void );
-			void Cleanup( void );
+			virtual ~WinsockManager();
+
+			bool InitWinsock() noexcept;
+			void Cleanup() noexcept;
+
+			bool LoadAcceptExFunc( const SOCKET listenSocket ) noexcept;
+			bool LoadAcceptExSockaddrFunc( const SOCKET listenSocket ) noexcept;
+			bool LoadDisconnectExFunc( const SOCKET listenSocket ) noexcept;
+
+			BOOL GetAcceptEx( SOCKET sListenSocket,
+							  SOCKET sAcceptSocket,
+							  PVOID lpOutputBuffer,
+							  DWORD dwReceiveDataLength,
+							  DWORD dwLocalAddressLength,
+							  DWORD dwRemoteAddressLength,
+							  LPDWORD lpdwBytesReceived,
+							  LPOVERLAPPED lpOverlapped ) noexcept;
+
+			void GetAcceptExSockaddr( PVOID lpOutputBuffer,
+									  DWORD dwReceiveDataLength,
+									  DWORD dwLocalAddressLength,
+									  DWORD dwRemoteAddressLength,
+									  OUT struct sockaddr **LocalSockaddr,
+									  OUT LPINT LocalSockaddrLength,
+									  OUT struct sockaddr **RemoteSockaddr,
+									  OUT LPINT RemoteSockaddrLength ) noexcept;
+
+			BOOL GetDisconnectEx( SOCKET s,
+								  OUT LPOVERLAPPED lpOverlapped,
+								  DWORD dwFlags,
+								  DWORD dwReserved ) noexcept;
 
 			void SetEchoMode( bool EchoMode );
 
 			// EventSelect.
 			bool StartEventSelectEchoClient( SOCKET* pSocket, bool EchoMode );
 
-			bool StartEventSelectClient( SOCKET *pSocket, CQueue<char*>* pRecvBufferQueue, HANDLE* TargetWakeupThread );
-			void StopEventSelectClient( void );
+			bool StartEventSelectClient( SOCKET* pSocket, CQueue<char*>* pRecvBufferQueue, HANDLE* TargetWakeupThread );
+			void StopEventSelectClient();
 
 			bool StartEventSelectServer( const SOCKET* pSocket, CQueue<char*>* pRecvBufferQueue, 
 										 HANDLE TargetWakeupThread, bool EchoMode );
 			
-			// IOCP.
-			bool InitIOCP( const UInt16 workerThreadCount );
-			void StartIOCPWorker( CQueue<IOCPData*>* pQueue, const HANDLE* eventHandle, const UInt16 hreadCount, bool isEchoMode );
-			void RequestSendToIOCP( IOCPData* pIOCPData, size_t BufferLength );
-
-			// for C++/CLI.
 			EventSelectClient* GetEventSelectClient( void )
 			{
 				if( ENetworkRunMode::Client == _runningMode )
@@ -52,29 +74,18 @@ namespace Aurora
 
 				return nullptr;
 			}
-			char* GetFrontReceivedPacket( void );
 
-			inline const ENetworkRunMode GetNetworkMode( void ) const
-			{
-				return _runningMode;
-			}
-
-			inline void SetNetworkMode( ENetworkRunMode NetworkMode )
-			{
-				_runningMode = NetworkMode;
-			}
+			char* GetFrontReceivedPacket();
 		private:
-			bool InitWinsock( void );
-
 			bool _initiialized;
 			WSADATA _WSAData;
 
+			LPFN_ACCEPTEX _lpAcceptEx;
+			LPFN_GETACCEPTEXSOCKADDRS _lpAcceptExSockAddrs;
+			LPFN_DISCONNECTEX _lpDisconnectEx;
+
 			ENetworkRunMode _runningMode;
 
-			/////////////////// IOCP Model.
-			IOCPWorker _IOCPWorker;
-
-			/////////////////// EventSelect Model.
 			bool _useEventSelect;
 			SOCKET _eventSelectSocket;
 
@@ -84,6 +95,6 @@ namespace Aurora
 			WSAEVENT _listenEventHandle;
 		};
 	}
-
-#define AuroraWinsockManager Network::WinsockManager::Instance()
 }
+
+#define AuroraWinsockManager Aurora::Network::WinsockManager::Instance()

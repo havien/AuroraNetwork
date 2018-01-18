@@ -5,7 +5,7 @@ namespace Aurora
 {
 	namespace Network
 	{
-		BaseSocket::BaseSocket( void ) :
+		BaseSocket::BaseSocket():
 		_sendBytes( 0 ),
 		_recvBytes( 0 ),
 		_socket( INVALID_SOCKET )

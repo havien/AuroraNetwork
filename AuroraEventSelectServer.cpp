@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../AuroraUtility/MiscManager.h"
-#include "../AuroraUtility/StringManager.h"
+#include "../Utility/LogManager.h"
+#include "../Utility/StringManager.h"
 
 #include "NetworkManager.h"
 #include "WinsockManager.h"
@@ -40,7 +40,7 @@ _targetWakeupThread( INVALID_HANDLE_VALUE )
 
 EventSelectServer::~EventSelectServer( void )
 {
-	SAFE_DELETE( _pEventSelect );
+	SafeDelete( _pEventSelect );
 }
 
 UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
@@ -54,7 +54,7 @@ UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
 	WSANETWORKEVENTS networkEvents;
 	auto pAcceptData = pThis->GetAcceptData();
 
-	PRINT_NORMAL_LOG( L"START Accept Thread..!\n" );
+	AuroraLogManager->Trace( L"START Accept Thread..!" );
 	while( true == pThis->_runningAcceptThread )
 	{
 		// Wait for network Accept events on all sockets.
@@ -65,7 +65,7 @@ UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
 			continue;
 		}
 
-		PRINT_NORMAL_LOG( L"Wake UP [Accept Thread]\n" );
+		AuroraLogManager->Trace( L"Wake UP [Accept Thread]" );
 		Index -= WSA_WAIT_EVENT_0;
 
 		// Iterate through all events and enumerate
@@ -78,7 +78,7 @@ UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
 			if( SOCKET_ERROR == SocketResult )
 			{
 				WSAResetEvent( pAcceptData->ClientEvents[counter] );
-				PRINT_NORMAL_LOG( L"[Accept Thread] WSAEnumNetworkEvents() failed with error %d\n", WSAGetLastError() );
+				AuroraLogManager->Error( L"[Accept Thread] WSAEnumNetworkEvents() failed with error %d", WSAGetLastError() );
 				return 1;
 			}
 
@@ -86,7 +86,7 @@ UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
 			{
 				if( networkEvents.iErrorCode[FD_ACCEPT_BIT] != 0 )
 				{
-					PRINT_NORMAL_LOG( L"FD_ACCEPT failed with error %d\n", networkEvents.iErrorCode[FD_ACCEPT_BIT] );
+					AuroraLogManager->Error( L"FD_ACCEPT failed with error %d", networkEvents.iErrorCode[FD_ACCEPT_BIT] );
 					break;
 				}
 
@@ -98,19 +98,19 @@ UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
 
 				if( INVALID_SOCKET == ClientSocket )
 				{
-					PRINT_NORMAL_LOG( L"accept() failed with error %d\n", WSAGetLastError() );
+					AuroraLogManager->Error( L"accept() failed with error %d", WSAGetLastError() );
 					continue;
 				}
 
 				char ipAddress[MAX_IPV4_IP_LEN] = { 0 };
 				AuroraNetworkManager->DetermineIPAddress( clientAddr, OUT ipAddress );
 
-				PRINT_NORMAL_LOG( L"[Accept Thread] Connect to Client: IP=%S, Port=%d\n",
+				AuroraLogManager->Error( L"[Accept Thread] Connect to Client: IP=%S, Port=%d",
 								  ipAddress, AuroraNetworkManager->GetPort( clientAddr ) );
 
 				if( WSA_MAXIMUM_WAIT_EVENTS <= pAcceptData->EventCount )
 				{
-					PRINT_NORMAL_LOG( L"[Accept Thread] Maximum Wait Event Counts!!\n" );
+					AuroraLogManager->Error( L"[Accept Thread] Maximum Wait Event Counts!!" );
 					continue;
 				}
 
@@ -135,7 +135,7 @@ UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
 				Int32 SelectResult = WSAEventSelect( ClientSocket, m_AcceptEvent, FD_READ | FD_WRITE | FD_CLOSE );
 				if( SOCKET_ERROR == SelectResult )
 				{
-					PRINT_NORMAL_LOG( L"WSAEventSelect() failed with error %d\n", WSAGetLastError() );
+					AuroraLogManager->Error( L"WSAEventSelect() failed with error %d", WSAGetLastError() );
 					return 1;
 				}
 
@@ -147,11 +147,11 @@ UInt32 __stdcall EventSelectServer::AcceptClientUseEventSelect( void* pArgs )
 			{
 				if( ( 0 != networkEvents.iErrorCode[FD_CLOSE_BIT] ) )
 				{
-					PRINT_NORMAL_LOG( L"[Accept Thread] FD_CLOSE failed with error %d\n",
+					AuroraLogManager->Error( L"[Accept Thread] FD_CLOSE failed with error %d",
 									  networkEvents.iErrorCode[FD_CLOSE_BIT] );
 				}
 
-				PRINT_NORMAL_LOG( L"FD_CLOSE is OK!\n" );
+				AuroraLogManager->Trace( L"FD_CLOSE is OK!" );
 			}
 		}
 
@@ -168,7 +168,7 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 		return 0;
 	}
 
-	EventSelectServer* pThis = (EventSelectServer*)pArgs;
+	auto pThis = (EventSelectServer*)pArgs;
 
 	// must be exists Shared Recv Buffer.
 	if( nullptr == pThis->GetRecvBufferQueue() )
@@ -179,16 +179,16 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 	auto pClientData = pThis->GetClientData();
 
 	WSANETWORKEVENTS NetworkEvents;
-	char tempBuffer[SUPER_BUFFER_LEN] = { 0 };
+	char tempBuffer[BIGGER_BUFFER_LEN] = { 0 };
 
-	PRINT_NORMAL_LOG( L"START Read/Write Thread..!\n" );
+	AuroraLogManager->Trace( L"START Read/Write Thread..!" );
 	while( true == pThis->_runningReadWriteThread )
 	{
 		// Wait for network Accept events on all sockets.
 		DWORD Index = WSAWaitForMultipleEvents( pClientData->EventCount, pClientData->ClientEvents, FALSE, 1500, FALSE );
 		if( WSA_WAIT_FAILED == Index )
 		{
-			//PRINT_NORMAL_LOG( L"WSAWaitForMultipleEvents() - WSA_WAIT_FAILED\n" );
+			//PRINT_NORMAL_LOG( L"WSAWaitForMultipleEvents() - WSA_WAIT_FAILED" );
 			continue;
 		}
 
@@ -207,7 +207,7 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 				if( SOCKET_ERROR == eventResult )
 				{
 					WSAResetEvent( pClientData->ClientEvents[counter] );
-					PRINT_NORMAL_LOG( L"[Read/Write Thread] WSAEnumNetworkEvents() failed with error %d\n", WSAGetLastError() );
+					AuroraLogManager->Error( L"[Read/Write Thread] WSAEnumNetworkEvents() failed with error %d", WSAGetLastError() );
 					continue;
 				}
 
@@ -219,25 +219,25 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 					// send 관련 함수를 호출하여 WOULDBLOCK이 리턴되었다가 전송 버퍼가 비워졌을 때.
 					if( FD_READ & NetworkEvents.lNetworkEvents && (0 != NetworkEvents.iErrorCode[FD_READ_BIT]) )
 					{
-						PRINT_NORMAL_LOG( L"NetworkEvents.iErrorCode[FD_READ_BIT]\n" );
+						AuroraLogManager->Error( L"NetworkEvents.iErrorCode[FD_READ_BIT]" );
 						continue;
 					}
 
 					// send(:4100), sendto(:4100), WSASend(:4100), WSASendTo(:4100)
 					if( FD_WRITE & NetworkEvents.lNetworkEvents && (0 != NetworkEvents.iErrorCode[FD_WRITE_BIT]) )
 					{
-						PRINT_NORMAL_LOG( L"NetworkEvents.iErrorCode[FD_WRITE_BIT]\n" );
+						AuroraLogManager->Error( L"NetworkEvents.iErrorCode[FD_WRITE_BIT]" );
 						continue;
 					}
 
 					if( false == pThis->GetEchoMode() && true == pClientData->FirstConnect[counter] )
 					{
-						PRINT_NORMAL_LOG( L"[First Connect!! ClientNumber :%d]\n", counter );
+						AuroraLogManager->Error( L"[First Connect!! ClientNumber :%d]", counter );
 						pClientData->FirstConnect[counter] = false;
 						continue;
 					}
 
-					AuroraStringManager->Clear( tempBuffer, SUPER_BUFFER_LEN );
+					AuroraStringManager->Clear( tempBuffer, BIGGER_BUFFER_LEN );
 
 					// Receive data.
 					if( 0 == pClientData->ClientSockets[counter].GetRecvBytes() )
@@ -247,18 +247,18 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 						UInt16 ReceivedBytes = 0;
 						bool recvResult = AuroraNetworkManager->RecvFromClient( curSocket, 
 																				tempBuffer, 
-																				(SUPER_BUFFER_LEN-1),
+																				(BIGGER_BUFFER_LEN-1),
 																				ReceivedBytes );
 						if( false == recvResult )
 						{
 							if( WSAEWOULDBLOCK == WSAGetLastError() )
 							{
-								char* pWaitBuffer = new char[SUPER_BUFFER_LEN];
-								AuroraStringManager->Clear( pWaitBuffer, SUPER_BUFFER_LEN );
-								strcpy_s( pWaitBuffer, SUPER_BUFFER_LEN, tempBuffer );
+								char* pWaitBuffer = new char[BIGGER_BUFFER_LEN];
+								AuroraStringManager->Clear( pWaitBuffer, BIGGER_BUFFER_LEN );
+								strcpy_s( pWaitBuffer, BIGGER_BUFFER_LEN, tempBuffer );
 
 								pThis->_waitforReceiveDatas.push_back( pWaitBuffer );
-								PRINT_NORMAL_LOG( L"Recv WOULDBLOCK! just Continue..ClientNumber : %d\n", counter );
+								AuroraLogManager->Error( L"Recv WOULDBLOCK! just Continue..ClientNumber : %d", counter );
 								continue;
 							}
 							else
@@ -269,11 +269,11 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 								{
 									pThis->RemoveClientData( pClientData, counter );
 									pThis->DecreaseAcceptedClientCount();
-									PRINT_NORMAL_LOG( L"Recv Error! Disconnect from Client! ClientNumber : %d\n", counter );
+									AuroraLogManager->Error( L"Recv Error! Disconnect from Client! ClientNumber : %d", counter );
 									continue;
 								}
 
-								PRINT_NORMAL_LOG( L"Recv Error! ClientNumber : %d, Message : %d\n", counter, WSAGetLastError() );
+								AuroraLogManager->Error( L"Recv Error! ClientNumber : %d, Message : %d", counter, WSAGetLastError() );
 								break;
 							}
 							break;
@@ -284,7 +284,7 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 						{
 							pThis->RemoveClientData( pClientData, counter );
 							pThis->DecreaseAcceptedClientCount();
-							PRINT_NORMAL_LOG( L"Recv End. Client Disconnect by Gracefully closed. ClientNumber : %d\n", counter );
+							AuroraLogManager->Error( L"Recv End. Client Disconnect by Gracefully closed. ClientNumber : %d", counter );
 							break;
 						}
 
@@ -299,7 +299,7 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 						char ipAddress[MAX_IPV4_IP_LEN] = { 0 };
 						AuroraNetworkManager->DetermineIPAddress( clientaddr, OUT ipAddress );
 
-						PRINT_NORMAL_LOG( L"[TCP/%S:%d][Position:%d]\n", 
+						AuroraLogManager->Trace( L"[TCP/%S:%d][Position:%d]",
 										  ipAddress, AuroraNetworkManager->GetPort( clientaddr ), counter );
 
 						if( true == pThis->GetEchoMode() )
@@ -320,7 +320,7 @@ UInt32 __stdcall EventSelectServer::ReadWriteDataUseEventSelect( void* pArgs )
 
 				if( FD_CLOSE & NetworkEvents.lNetworkEvents )
 				{
-					PRINT_NORMAL_LOG( L"[Send/Recv Thread] FD_CLOSE with %d\n", NetworkEvents.iErrorCode[FD_CLOSE_BIT] );
+					AuroraLogManager->Trace( L"[Send/Recv Thread] FD_CLOSE with %d", NetworkEvents.iErrorCode[FD_CLOSE_BIT] );
 
 					WSAResetEvent( pClientData->ClientEvents[counter] );
 					pThis->RemoveClientData( pClientData, counter );
@@ -370,7 +370,7 @@ void EventSelectServer::SetClientData( const Int32 &EventCount, const SOCKET pSo
 	_clientData.ClientSockets[Position].Set( SendRecvBytes, SendRecvBytes, pSocket );
 }
 
-void EventSelectServer::SetAcceptData( const Int32 &EventCount, const SOCKET *pSocket, const WSAEVENT rEvent )
+void EventSelectServer::SetAcceptData( const Int32 &EventCount, const SOCKET* pSocket, const WSAEVENT rEvent )
 {
 	Int32 Position = (EventCount - 1);
 
@@ -383,7 +383,7 @@ void EventSelectServer::SetAcceptData( const Int32 &EventCount, const SOCKET *pS
 
 void EventSelectServer::RemoveClientData( EventSelectClientData* pClientData, const Int32 position )
 {
-	PRINT_NORMAL_LOG( L"[Enter RemoveClientData] CurPosition = %d\n", position );
+	AuroraLogManager->Trace( L"[Enter RemoveClientData] CurPosition = %d", position );
 
 	if( pClientData && (0 <= position && pClientData->EventCount >= position) )
 	{
@@ -400,7 +400,7 @@ void EventSelectServer::RemoveClientData( EventSelectClientData* pClientData, co
 			auto pNextEvent = pClientData->ClientEvents[NextCur];
 			auto pNextSockes = pClientData->ClientSockets[NextCur];
 
-			PRINT_NORMAL_LOG( L"[RemoveClientData] Move Array, Current : %d, Current+1 : %d\n", Current, NextCur );
+			AuroraLogManager->Trace( L"[RemoveClientData] Move Array, Current : %d, Current+1 : %d", Current, NextCur );
 
 			pClientData->ClientEvents[Current] = pNextEvent;
 			pClientData->ClientSockets[Current].Set( pNextSockes.GetSendBytes(),

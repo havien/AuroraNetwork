@@ -16,16 +16,13 @@
     <Filter Include="Packet">
       <UniqueIdentifier>{524cabd6-f916-4a30-bbfb-832ed60a04d9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Winsock\EventSelect">
-      <UniqueIdentifier>{1427254d-1e53-4601-8b9f-0150958008bd}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Include">
       <UniqueIdentifier>{d7bc6c0a-7545-45b5-be55-276aab0289ab}</UniqueIdentifier>
     </Filter>
     <Filter Include="IOCP">
       <UniqueIdentifier>{10df7b64-130e-48e1-bc3e-59291c4111f1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="EventSelect">
+    <Filter Include="Winsock\EventSelect">
       <UniqueIdentifier>{ca02d260-a41f-491b-bede-18fb2be16138}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -48,17 +45,20 @@
     <ClInclude Include="AuroraIOCP.h">
       <Filter>IOCP</Filter>
     </ClInclude>
-    <ClInclude Include="AuroraIOCPWorker.h">
-      <Filter>IOCP</Filter>
-    </ClInclude>
     <ClInclude Include="AuroraEventSelectClient.h">
-      <Filter>EventSelect</Filter>
+      <Filter>Winsock\EventSelect</Filter>
     </ClInclude>
     <ClInclude Include="AuroraEventSelectServer.h">
-      <Filter>EventSelect</Filter>
+      <Filter>Winsock\EventSelect</Filter>
     </ClInclude>
     <ClInclude Include="PacketBase.h">
       <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="IOCPManager.h">
+      <Filter>IOCP</Filter>
+    </ClInclude>
+    <ClInclude Include="IOCPWorker.h">
+      <Filter>IOCP</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -74,17 +74,20 @@
     <ClCompile Include="AuroraIOCP.cpp">
       <Filter>IOCP</Filter>
     </ClCompile>
-    <ClCompile Include="AuroraIOCPWorker.cpp">
-      <Filter>IOCP</Filter>
-    </ClCompile>
     <ClCompile Include="AuroraEventSelectClient.cpp">
-      <Filter>EventSelect</Filter>
+      <Filter>Winsock\EventSelect</Filter>
     </ClCompile>
     <ClCompile Include="AuroraEventSelectServer.cpp">
-      <Filter>EventSelect</Filter>
+      <Filter>Winsock\EventSelect</Filter>
     </ClCompile>
     <ClCompile Include="PacketBase.cpp">
       <Filter>Packet</Filter>
+    </ClCompile>
+    <ClCompile Include="IOCPManager.cpp">
+      <Filter>IOCP</Filter>
+    </ClCompile>
+    <ClCompile Include="IOCPWorker.cpp">
+      <Filter>IOCP</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

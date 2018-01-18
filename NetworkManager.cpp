@@ -1,14 +1,15 @@
 #pragma once
+#include "../Utility/StringManager.h"
+#include "../Utility/LogManager.h"
+
 #include "NetworkManager.h"
-#include "../AuroraUtility/MiscManager.h"
-#include "../AuroraUtility/StringManager.h"
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 using namespace Aurora;
 using namespace Aurora::Network;
 
-NetworkManager::NetworkManager( void ) : 
+NetworkManager::NetworkManager(): 
 _initialized( false ),
 _runningMode( ENetworkRunMode::Max ),
 _clientSocket( INVALID_SOCKET ),
@@ -53,28 +54,28 @@ void NetworkManager::DetermineIPAddress( const sockaddr_in& addr, OUT char* pIP,
 	}
 }
 
-const UInt16 NetworkManager::GetPort( const sockaddr_in& addr )
+const UInt16 NetworkManager::GetPort( const sockaddr_in& addr ) noexcept
 {
 	return ntohs( addr.sin_port );
 }
 
-bool NetworkManager::InitClientNetwork( const char* pServerIP, const UInt16 ServerPort )
+bool NetworkManager::InitClient( const char* pServerIP, const UInt16 ServerPort )
 {
 	if( pServerIP )
 	{
 		if( ENetworkRunMode::Server == _runningMode )
 		{
+			AuroraLogManager->Error( L"[NetworkManager::InitClient] running mode is Server" );
 			return false;
 		}
 
-		AuroraStringManager->Copy( pServerIP, _serverIP, MAX_IPV4_IP_LEN );
+		AuroraStringManager->Copy( _serverIP, pServerIP, MAX_IPV4_IP_LEN );
 		_serverPort = ServerPort;
 
 		_clientSocket = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
 		if( INVALID_SOCKET == _clientSocket )
 		{
-			//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"socket failed with error : %ld\n", WSAGetLastError() );
-			PRINT_NORMAL_LOG( L"socket failed with error : %ld\n", WSAGetLastError() );
+			AuroraLogManager->Error( L"[NetworkManager::InitClient] socket failed with error : %ld", WSAGetLastError() );
 			CloseSocket( &_clientSocket );
 			WSACleanup();
 			return false;
@@ -105,6 +106,9 @@ bool NetworkManager::ConnectToServer( void )
 {
 	if( true == _initialized && INVALID_SOCKET != _clientSocket )
 	{
+		AuroraLogManager->Trace( L"[NetworkManager::ConnectToServer] Try Connect to Server..[IP: %S, port:%d]",
+								 _serverIP, _serverPort );
+
 		_clientAddr.sin_family = AF_INET;
 		inet_pton( AF_INET, _serverIP, (PVOID *)(&_clientAddr.sin_addr.s_addr) );
 		_clientAddr.sin_port = htons( _serverPort );
@@ -112,8 +116,8 @@ bool NetworkManager::ConnectToServer( void )
 		auto connectResult = connect( _clientSocket, reinterpret_cast<SOCKADDR*>(&_clientAddr), sizeof( _clientAddr ) );
 		if( SOCKET_ERROR == connectResult )
 		{
-			PRINT_NORMAL_LOG( L"[ConnectToServer] Failed to Connect Server..![Reason : %d]\n",
-							  WSAGetLastError() );
+			AuroraLogManager->Error( L"[ConnectToServer] Failed to Connect Server..![Reason : %d]",
+									WSAGetLastError() );
 
 			CloseSocket( &_clientSocket );
 			return false;
@@ -139,12 +143,12 @@ bool NetworkManager::SendToServer( const char* pSendBuffer, const UInt16 &wishSe
 		CloseSocket( &_clientSocket );
 		sendBytes = -1;
 
-		PRINT_NORMAL_LOG( L"[SendToServer] Send failed with error: %d\n", WSAGetLastError() );
+		AuroraLogManager->Error( L"[SendToServer] Send failed with error: %d", WSAGetLastError() );
 		return false;
 	}
 
 	sendBytes = sendResult;
-	PRINT_NORMAL_LOG( L"[SendToServer] Success to Send %d Bytes\n", sendBytes );
+	AuroraLogManager->Trace( L"[SendToServer] Success to Send %d Bytes", sendBytes );
 	return true;
 }
 
@@ -173,13 +177,17 @@ bool NetworkManager::ReceiveFromServer( char* pReceiveBuffer, const UInt16 &wish
 		{
 			// Connection Closed.
 			receivedBytes = -1;
-			PRINT_NORMAL_LOG( L"[ReceiveFromServer] Recv failed with Closed Connection : %d\n", WSAGetLastError() );
+			AuroraLogManager->Error( L"[ReceiveFromServer] Recv failed with Closed Connection : %d", 
+									 WSAGetLastError() );
+
 			return false;
 		}
 		else if( 0 < resultVal )
 		{
 			// Received Data.
-			PRINT_NORMAL_LOG( L"[ReceiveFromServer] Success! Received %d Bytes\n", resultVal );
+			AuroraLogManager->Trace( L"[ReceiveFromServer] Success! Received %d Bytes", 
+									 resultVal );
+
 			receivedBytes = resultVal;
 			return true;
 		}
@@ -187,7 +195,7 @@ bool NetworkManager::ReceiveFromServer( char* pReceiveBuffer, const UInt16 &wish
 		{
 			// occurred Another Error.
 			receivedBytes = -1;
-			PRINT_NORMAL_LOG( L"[ReceiveFromServer] Occurred Error! [%d]\n", WSAGetLastError() );
+			AuroraLogManager->Error( L"[ReceiveFromServer] Occurred Error! [%d]", WSAGetLastError() );
 			return false;
 		}
 	}
@@ -207,7 +215,7 @@ Int32 NetworkManager::recvn( SOCKET &socket, char* pBuffer, Int32 recvLength, In
 
 		if( SOCKET_ERROR == curReceivedResult )
 		{
-			PRINT_NORMAL_LOG( L"[recvn] LAST ERROR : %d", WSAGetLastError() );
+			AuroraLogManager->Error( L"[recvn] LAST ERROR : %d", WSAGetLastError() );
 			return SOCKET_ERROR;
 		}
 		else if( 0 == curReceivedResult )
@@ -225,7 +233,7 @@ Int32 NetworkManager::recvn( SOCKET &socket, char* pBuffer, Int32 recvLength, In
 /////////////////////
 // Server.
 /////////////////////
-bool NetworkManager::InitServerNetwork( const UInt16 ServerPort )
+bool NetworkManager::InitServer( const UInt16 ServerPort )
 {
 	if( ENetworkRunMode::Server != _runningMode )
 	{
@@ -236,7 +244,7 @@ bool NetworkManager::InitServerNetwork( const UInt16 ServerPort )
 	_listenSocket = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
 	if( INVALID_SOCKET == _listenSocket )
 	{
-		//printf("socket() failed with error %d\n", WSAGetLastError());
+		//printf("socket() failed with error %d", WSAGetLastError());
 		return false;
 	}
 
@@ -248,8 +256,9 @@ bool NetworkManager::InitServerNetwork( const UInt16 ServerPort )
 	return true;
 }
 
-bool NetworkManager::StartServerNetwork( void )
+bool NetworkManager::StartServer( void )
 {
+	AuroraLogManager->Trace( L"[NetworkManager::StartServer] Begin" );
 	if( true == _initialized && ENetworkRunMode::Server == _runningMode )
 	{
 		_listenAddr.sin_family = AF_INET;
@@ -259,7 +268,7 @@ bool NetworkManager::StartServerNetwork( void )
 		Int32 SocketResult = bind( _listenSocket, (SOCKADDR *)&_listenAddr, sizeof(_listenAddr) );
 		if( SOCKET_ERROR == SocketResult )
 		{
-			PRINT_NORMAL_LOG( L"bind() failed with error %d\n", WSAGetLastError() );
+			AuroraLogManager->Error( L"bind() failed with error %d", WSAGetLastError() );
 			return false;
 		}
 
@@ -269,10 +278,11 @@ bool NetworkManager::StartServerNetwork( void )
 		SocketResult = listen( _listenSocket, SOMAXCONN );
 		if( SOCKET_ERROR == SocketResult )
 		{
-			PRINT_NORMAL_LOG( L"Error listening on socket.\n" );
+			AuroraLogManager->Error( L"Error listening on socket." );
 			return false;
 		}
 
+		AuroraLogManager->Trace( L"[NetworkManager::StartServer] Succss to Listen" );
 		_isRunningServer = true;
 		return true;
 	}
@@ -280,31 +290,32 @@ bool NetworkManager::StartServerNetwork( void )
 	return false;
 }
 
-bool NetworkManager::AcceptClient( void )
-{
-	if( ENetworkRunMode::Server != _runningMode )
-	{
-		return false;
-	}
-
-	while( true == _isRunningServer )
-	{
-		if( true != _initialized )
-		{
-			return false;
-		}
-
-		Int32 ClientAddrLen = sizeof( _clientAddr );
-		SOCKET ClientSocket = accept( _listenSocket, (SOCKADDR *)&_clientAddr, &ClientAddrLen );
-		if( INVALID_SOCKET == ClientSocket )
-		{
-			PRINT_NORMAL_LOG( L"accept() failed with error %d\n", WSAGetLastError() );
-			continue;
-		}
-	}
-
-	return true;
-}
+//bool NetworkManager::BeginAccept( void )
+//{
+//	if( ENetworkRunMode::Server != _runningMode )
+//	{
+//		return false;
+//	}
+//
+//	AuroraLogManager->Trace( L"[BeginAccept]" );
+//	while( true == _isRunningServer )
+//	{
+//		if( true != _initialized )
+//		{
+//			return false;
+//		}
+//
+//		Int32 clientAddrLen = sizeof( _clientAddr );
+//		SOCKET clientSocket = accept( _listenSocket, (SOCKADDR *)&_clientAddr, &clientAddrLen );
+//		if( INVALID_SOCKET == clientSocket )
+//		{
+//			AuroraLogManager->Error( L"accept() failed with error %d", WSAGetLastError() );
+//			continue;
+//		}
+//	}
+//
+//	return true;
+//}
 
 bool NetworkManager::SendToClient( const SOCKET &ClientSocket, const char* pSendBuffer, 
 								   const UInt16 &WishSendingBytes, UInt16 &SendedBytes )
@@ -316,8 +327,7 @@ bool NetworkManager::SendToClient( const SOCKET &ClientSocket, const char* pSend
 
 	if( 0 >= WishSendingBytes )
 	{
-		//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[SendToClient] lower to 0(zero) SendingBytes : %d\n", wishSendBytes );
-		PRINT_NORMAL_LOG( L"[SendToClient] lower to 0(zero) SendingBytes : %d\n", WishSendingBytes );
+		AuroraLogManager->Error( L"[SendToClient] lower to 0(zero) SendingBytes : %d", WishSendingBytes );
 		return false;
 	}
 
@@ -326,8 +336,7 @@ bool NetworkManager::SendToClient( const SOCKET &ClientSocket, const char* pSend
 		Int32 iResult = send( ClientSocket, pSendBuffer, WishSendingBytes, 0 );
 		if( SOCKET_ERROR == iResult )
 		{
-			//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[SendToClient] Send failed with error: %d\n", WSAGetLastError() );
-			PRINT_NORMAL_LOG( L"[SendToClient] Send failed with error: %d\n", WSAGetLastError() );
+			AuroraLogManager->Error( L"[SendToClient] Send failed with error: %d", WSAGetLastError() );
 			//CloseSocket( ClientSocket );
 			SendedBytes = 0;
 			return false;
@@ -350,8 +359,7 @@ bool NetworkManager::RecvFromClient( const SOCKET &ClientSocket, char* pReceiveB
 
 	if( 0 >= wishReceiveBytes )
 	{
-		//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[RecvFromClient] lower to 0(zero) SendingBytes : %d\n", wishReceiveBytes );
-		PRINT_NORMAL_LOG( L"[RecvFromClient] lower to 0(zero) SendingBytes : %d\n", wishReceiveBytes );
+		AuroraLogManager->Error( L"[RecvFromClient] lower to 0(zero) SendingBytes : %d", wishReceiveBytes );
 		return false;
 	}
 
@@ -360,8 +368,8 @@ bool NetworkManager::RecvFromClient( const SOCKET &ClientSocket, char* pReceiveB
 		Int32 iResult = recv( ClientSocket, pReceiveBuffer, wishReceiveBytes, 0 );
 		if( SOCKET_ERROR == iResult )
 		{
-			//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[RecvFromClient] Recv failed with error: %d\n", WSAGetLastError() );
-			PRINT_NORMAL_LOG( L"[RecvFromClient] Recv failed with error: %d\n", WSAGetLastError() );
+			//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[RecvFromClient] Recv failed with error: %d", WSAGetLastError() );
+			AuroraLogManager->Error( L"[RecvFromClient] Recv failed with error: %d", WSAGetLastError() );
 			return false;
 		}
 
@@ -372,8 +380,9 @@ bool NetworkManager::RecvFromClient( const SOCKET &ClientSocket, char* pReceiveB
 	return false;
 }
 
-bool NetworkManager::BroadcastToClient( const UInt16 ClientCount, BaseSocket* pClientSocketArray, const char* pSendBuffer,
-										const UInt16 &wishSendingBytes, UInt16 &SendedBytes )
+bool NetworkManager::BroadcastToClient( const UInt16 ClientCount, BaseSocket* pClientSocketArray, 
+										const char* pSendBuffer, const UInt16 &wishSendingBytes, 
+										OUT UInt16 &SendedBytes )
 {
 	if( ENetworkRunMode::Server != _runningMode )
 	{
@@ -382,8 +391,8 @@ bool NetworkManager::BroadcastToClient( const UInt16 ClientCount, BaseSocket* pC
 
 	if( 0 >= wishSendingBytes )
 	{
-		//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[BroadcastToClient] lower to 0(zero) SendingBytes : %d\n", wishSendBytes );
-		PRINT_NORMAL_LOG( L"[BroadcastToClient] lower to 0(zero) SendingBytes : %d\n", wishSendingBytes );
+		//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[BroadcastToClient] lower to 0(zero) SendingBytes : %d", wishSendBytes );
+		AuroraLogManager->Error( L"[BroadcastToClient] lower to 0(zero) SendingBytes : %d", wishSendingBytes );
 		return false;
 	}
 
@@ -396,8 +405,8 @@ bool NetworkManager::BroadcastToClient( const UInt16 ClientCount, BaseSocket* pC
 			Int32 sendResult = send( CurSocket, pSendBuffer, wishSendingBytes, 0 );
 			if( SOCKET_ERROR == sendResult )
 			{
-				//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[BroadcastToClient] Send failed with error: %d\n", WSAGetLastError() );
-				PRINT_NORMAL_LOG( L"[BroadcastToClient] Send failed with error: %d\n", WSAGetLastError() );
+				//PRINT_NORMAL_LOG( eLogPrintType_Normal, L"[BroadcastToClient] Send failed with error: %d", WSAGetLastError() );
+				AuroraLogManager->Error( L"[BroadcastToClient] Send failed with error: %d", WSAGetLastError() );
 				SendedBytes = 0;
 				return false;
 			}
@@ -436,7 +445,7 @@ void NetworkManager::ForceCloseSocket( SOCKET GetSocket )
 	// no TCP TIME_WAIT
 	if( SOCKET_ERROR == setsockopt( GetSocket, SOL_SOCKET, SO_LINGER, (char*)&lingerOption, sizeof( LINGER ) ) )
 	{
-		PRINT_NORMAL_LOG( L"[ForceCloseSocket] setsockopt linger option error: %d\n", GetLastError() );
+		AuroraLogManager->Error( L"[ForceCloseSocket] setsockopt linger option error: %d", GetLastError() );
 		return;
 	}
 
@@ -447,7 +456,7 @@ bool NetworkManager::ValidatePacket( PacketHeader const* pHeader )
 {
 	if( nullptr == pHeader )
 	{
-		PRINT_NORMAL_LOG( L"[RequestRecv] invalid packet! pHeader is nullptr!!" );
+		AuroraLogManager->Error( L"[RequestRecv] invalid packet! pHeader is nullptr!!" );
 		return false;
 	}
 
@@ -455,7 +464,7 @@ bool NetworkManager::ValidatePacket( PacketHeader const* pHeader )
 		static_cast<UInt16>(EPacketOperation::Max) < pHeader->type )
 	{
 		// invalid packet.
-		PRINT_NORMAL_LOG( L"[RequestRecv] invalid packet! type:%d, size:%d\n", pHeader );
+		AuroraLogManager->Error( L"[RequestRecv] invalid packet! type:%d, size:%d", pHeader );
 		return false;
 	}
 

@@ -1,11 +1,11 @@
 #pragma once
+#include <ctime>
 
-#include "../AuroraUtility/MiscManager.h"
-#include "../AuroraUtility/StringManager.h"
+#include "../Utility/LogManager.h"
+#include "../Utility/StringManager.h"
 
 #include "NetworkManager.h"
 #include "WinsockManager.h"
-
 #include "AuroraEventSelectClient.h"
 
 using namespace Aurora;
@@ -26,7 +26,7 @@ EventSelect::~EventSelect( void )
 
 }
 
-bool EventSelect::StartEventSelect( const SOCKET *pSocket, ENetworkRunMode RunMode )
+bool EventSelect::StartEventSelect( const SOCKET* pSocket, ENetworkRunMode RunMode )
 {
 	if( pSocket )
 	{
@@ -48,7 +48,7 @@ bool EventSelect::StartEventSelect( const SOCKET *pSocket, ENetworkRunMode RunMo
 
 		if( SOCKET_ERROR == SocketResult )
 		{
-			printf( "[StartEventSelect] WSAEventSelect() failed with error %d\n", WSAGetLastError() );
+			printf( "[StartEventSelect] WSAEventSelect() failed with error %d", WSAGetLastError() );
 			return false;
 		}
 
@@ -94,11 +94,7 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 		return 0;
 	}
 
-	EventSelectClient* pThis = reinterpret_cast<EventSelectClient*>(pArgs);
-	//AuroraUtility::CMiscManager *pWinUtilManager = AuroraUtility::CMiscManager::Instance();
-
-	/*PRINT_NORMAL_LOG( L"START CommunicationWithServer Thread..!\n" );*/
-		
+	auto pThis = reinterpret_cast<EventSelectClient*>(pArgs);		
 	if( true == pThis->GetEchoMode() )
 	{
 		Int32 asciiupperstart = 65;
@@ -107,11 +103,11 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 		Int32 asciilowerstart = 97;
 		Int32 asciilowerend = 122;
 
-		char sendBuffer[SUPER_BUFFER_LEN] = {0};
-		AuroraStringManager->Clear( sendBuffer, SUPER_BUFFER_LEN );
+		char sendBuffer[BIGGER_BUFFER_LEN] = {0};
+		AuroraStringManager->Clear( sendBuffer, BIGGER_BUFFER_LEN );
 
 		srand( (unsigned int)time( NULL ) );
-		for ( UInt16 Current = 0; Current < (SUPER_BUFFER_LEN-1); ++Current )
+		for ( UInt16 Current = 0; Current < (BIGGER_BUFFER_LEN-1); ++Current )
 		{
 			Int32 ascii = rand() % ( asciilowerend - asciilowerstart ) + asciilowerstart;
 			Int32 ascii2 = rand() % ( asciiupperend - asciiupperstart ) + asciiupperstart;
@@ -130,7 +126,7 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 		bool sendResult = AuroraNetworkManager->SendToServer( sendBuffer, wishSendBytes, OUT sendBytes );
 		if( true == sendResult && 0 < sendBytes )
 		{
-			//PRINT_NORMAL_LOG( L"Success to Send %ld Bytes, [%S]\n", sendBytes, sendBuffer );
+			AuroraLogManager->Trace( L"Success to Send %ld Bytes, [%S]", sendBytes, sendBuffer );
 		}
 	}
 
@@ -144,7 +140,7 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 			continue;
 		}
 
-		/*PRINT_NORMAL_LOG( L"Wake UP [CommunicationWithServer Thread]\n" );*/
+		AuroraLogManager->Trace( L"Wake UP [CommunicationWithServer Thread]" );
 		Index -= WSA_WAIT_EVENT_0;
 
 		Int32 SocketResult = WSAEnumNetworkEvents( pThis->_pEventSelect->_eventSocket, 
@@ -153,7 +149,8 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 		if( SOCKET_ERROR == SocketResult )
 		{
 			WSAResetEvent( pThis->_pEventSelect->_eventObject );
-			PRINT_NORMAL_LOG( L"[CommunicationWithServer Thread] WSAEnumNetworkEvents() failed with error %d\n", WSAGetLastError() );
+			AuroraLogManager->Error( L"[CommunicationWithServer Thread] WSAEnumNetworkEvents() failed with error %d",
+									 WSAGetLastError() );
 			continue;
 		}
 
@@ -162,11 +159,12 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 		{
 			if( networkEvents.iErrorCode[FD_CONNECT_BIT] != 0 )
 			{
-				PRINT_NORMAL_LOG( L"FD_CONNECT failed with error %d\n", networkEvents.iErrorCode[FD_CONNECT_BIT] );
+				AuroraLogManager->Error( L"FD_CONNECT failed with error %d", 
+										 networkEvents.iErrorCode[FD_CONNECT_BIT] );
 				break;
 			}
 
-			/*PRINT_NORMAL_LOG( L"FD_CONNECT\n" );*/
+			/*PRINT_NORMAL_LOG( L"FD_CONNECT" );*/
 		}
 
 		// Recv.
@@ -174,22 +172,22 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 		{
 			if( networkEvents.iErrorCode[FD_READ_BIT] != 0 )
 			{
-				PRINT_NORMAL_LOG( L"FD_READ failed with error %d\n", networkEvents.iErrorCode[FD_READ_BIT] );
+				AuroraLogManager->Error( L"FD_READ failed with error %d", networkEvents.iErrorCode[FD_READ_BIT] );
 				break;
 			}
 
-			char recvBuffer[SUPER_BUFFER_LEN] = {0};
+			char recvBuffer[BIGGER_BUFFER_LEN] = {0};
 			if( true == pThis->_echoMode )
 			{
 				Int32 ReceivedBytes = 0;
 				bool receiveResult = AuroraNetworkManager->ReceiveFromServer( recvBuffer, 
-																			(SUPER_BUFFER_LEN - 1),
-																			  ReceivedBytes, 
+																			(BIGGER_BUFFER_LEN - 1),
+																			ReceivedBytes, 
 																			  EDataReceiveMode::Normal );
 
 				if( true == receiveResult )
 				{
-					PRINT_NORMAL_LOG( L"[Received Data : %S]\n", recvBuffer );
+					AuroraLogManager->Trace( L"[Received Data : %S]", recvBuffer );
 
 					Int32 asciiupperstart = 65;
 					Int32 asciiupperend = 90;
@@ -197,9 +195,9 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 					Int32 asciilowerstart = 97;
 					Int32 asciilowerend = 122;
 					
-					AuroraStringManager->Clear( recvBuffer, SUPER_BUFFER_LEN );
+					AuroraStringManager->Clear( recvBuffer, BIGGER_BUFFER_LEN );
 
-					for ( UInt16 Current = 0; Current< (SUPER_BUFFER_LEN-1); ++Current )
+					for ( UInt16 Current = 0; Current< (BIGGER_BUFFER_LEN-1); ++Current )
 					{
 						Int32 ascii = rand( ) % ( asciilowerend - asciilowerstart ) + asciilowerstart;
 						Int32 ascii2 = rand( ) % ( asciiupperend - asciiupperstart ) + asciiupperstart;
@@ -210,7 +208,7 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 							randnum = ascii2;
 						}
 
-						recvBuffer[Current] = static_cast<char>( randnum );
+						recvBuffer[Current] = static_cast<char>(randnum);
 					}
 
 					Int32 sendBytes = 0;
@@ -221,7 +219,7 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 			{				
 				Int32 ReceivedBytes = 0;
 				bool receiveResult = AuroraNetworkManager->ReceiveFromServer( recvBuffer, 
-																		   (SUPER_BUFFER_LEN-1), 
+																		   (BIGGER_BUFFER_LEN-1), 
 																		   ReceivedBytes, 
 																		   EDataReceiveMode::Normal );
 				if( true == receiveResult )
@@ -235,9 +233,6 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 					}
 
 					pThis->AddReceivedPacket( recvBuffer );
-
-					/*char* pTemp = WinsockManager::Instance()->GetFrontReceivedPacket();
-					CBasePacket *pPacket = reinterpret_cast<CBasePacket *>( pTemp );*/
 				}					
 			}
 		}
@@ -245,12 +240,12 @@ UInt32 __stdcall EventSelectClient::CommunicationWithServer( void* pArgs )
 		// Disconnect.
 		if( FD_CLOSE & networkEvents.lNetworkEvents )
 		{
-			PRINT_NORMAL_LOG( L"[FD_CLOSE]\n" );
+			AuroraLogManager->Trace( L"[FD_CLOSE]" );
 			AuroraNetworkManager->ForceCloseSocket( pThis->_pEventSelect->_eventSocket );
 
 			if( networkEvents.iErrorCode[FD_CLOSE_BIT] != 0 )
 			{
-				PRINT_NORMAL_LOG( L"FD_CLOSE failed with error %d\n", networkEvents.iErrorCode[FD_CLOSE_BIT] );
+				AuroraLogManager->Error( L"FD_CLOSE failed with error %d", networkEvents.iErrorCode[FD_CLOSE_BIT] );
 				break;
 			}
 

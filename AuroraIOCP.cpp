@@ -1,5 +1,7 @@
 #pragma once
-#include "../AuroraUtility/StringManager.h"
+#include "../Utility/StringManager.h"
+#include "../Utility/LogManager.h"
+
 #include "AuroraIOCP.h"
 
 using namespace Aurora;
@@ -18,10 +20,10 @@ IOCPData::~IOCPData( void )
 
 void IOCPData::Clear( void )
 {
-	AuroraStringManager->Clear( buffer, SUPER_BUFFER_LEN );
+	AuroraStringManager->Clear( buffer, BIGGER_BUFFER_LEN );
 }
 
-OverlappedExtra::OverlappedExtra( void ) : 
+OverlappedExtra::OverlappedExtra(): 
 IOCPdata( INVALID_SOCKET )
 {
 	Reset();
@@ -40,45 +42,17 @@ void OverlappedExtra::Reset( void )
 
 	Operation = EOverlappedOperation::None;
 	WSABuffer.buf = IOCPdata.buffer;
-	WSABuffer.len = SUPER_BUFFER_LEN;
+	WSABuffer.len = BIGGER_BUFFER_LEN;
 }
 
-AuroraIOCP::AuroraIOCP( void ) :
+AuroraIOCP::AuroraIOCP():
 _handle( INVALID_HANDLE_VALUE ),
-_created( false ),
-_clientCount( 0 )
-{
-	memset( m_RecvOverlappeds, 0, sizeof(OverlappedExtra) * MAX_CLIENT_COUNT );
-	memset( m_SendOverlappeds, 0, sizeof(OverlappedExtra) * MAX_CLIENT_COUNT );
+_created( false )
+{	
 }
 
 AuroraIOCP::~AuroraIOCP()
 {
-}
-
-void AuroraIOCP::IncreaseClientCount( void )
-{
-	if( MAX_CLIENT_COUNT <= _clientCount )
-	{
-		return;
-	}
-
-	++_clientCount;
-}
-
-void AuroraIOCP::DecreaseClientCount( void )
-{
-	--_clientCount;
-	if( 0 > _clientCount )
-	{
-		_clientCount = 0;
-	}
-}
-
-void AuroraIOCP::ClearOverlapped( void )
-{
-	/*memset( &m_SendOverlappeds[_clientCount], 0, sizeof( OverlappedExtra ) );
-	memset( &m_RecvOverlappeds[_clientCount], 0, sizeof( OverlappedExtra ) );*/
 }
 
 // Create only an completion port without associating it with a file _handle.
@@ -87,7 +61,7 @@ bool AuroraIOCP::CreateIOCP( DWORD threadCount )
 	_handle = CreateIoCompletionPort( INVALID_HANDLE_VALUE, nullptr, 0, threadCount );
 	if( nullptr == _handle )
 	{
-		DWORD IOCPError = GetLastError(); IOCPError;
+		AuroraLogManager->Critical( L"Error CreateIOCP [%d]", GetLastError() );
 		return false;
 	}
 
@@ -96,43 +70,115 @@ bool AuroraIOCP::CreateIOCP( DWORD threadCount )
 }
 
 // Associate an existing completion port with a file _handle.
-bool AuroraIOCP::Associate( HANDLE associateHandle, UInt64 completionKey )
+bool AuroraIOCP::Associate( const HANDLE& associateHandle, const Int64& completionKey )
 {
-	if( INVALID_HANDLE_VALUE != associateHandle )
+	if( INVALID_HANDLE_VALUE == associateHandle )
 	{
-		HANDLE TempHandle = CreateIoCompletionPort( associateHandle, _handle, completionKey, 0 );
-		if( NULL == TempHandle )
-		{
-			auto IOCPError = GetLastError(); IOCPError;
-			return false;
-		}
-
-		// create send/recv data queue.
-		_handle = TempHandle;
-		return true;
-	}
-
-	return false;
-}
-
-bool AuroraIOCP::Associate( SOCKET associateSocket, UInt64 completionKey )
-{
-	if( MAX_CLIENT_COUNT <= _clientCount )
-	{
-		/*PRINT_NORMAL_LOG( L"Already Max Client Count!!\n" );*/
+		AuroraLogManager->Critical( L"Error Associate INVALID_HANDLE_VALUE" );
 		return false;
 	}
 
-	HANDLE AssocHandle = reinterpret_cast<HANDLE>(associateSocket);
-	return Associate( AssocHandle, completionKey );
+	auto tempHandle = CreateIoCompletionPort( associateHandle, _handle, completionKey, 0 );
+	if( NULL == tempHandle )
+	{
+		AuroraLogManager->Critical( L"[AuroraIOCP::Associate] CreateIoCompletionPort is NULL [%d]", GetLastError() );
+		return false;
+	}
+
+	// create send/recv data queue.
+	_handle = tempHandle;
+	return true;
 }
 
-OverlappedExtra* AuroraIOCP::GetLastRecvOverlappedData( void ) 
-{ 
-	return &m_RecvOverlappeds[_clientCount]; 
+bool AuroraIOCP::Associate( const SOCKET& associateSocket, const Int64& completionKey )
+{
+	return Associate( reinterpret_cast<HANDLE>(associateSocket), completionKey );
 }
 
-OverlappedExtra* AuroraIOCP::GetLastSendOverlappedData( void ) 
+bool AuroraIOCP::Associate( const SOCKET& associateSocket, const HANDLE& completionKey )
+{
+	return Associate( reinterpret_cast<HANDLE>(associateSocket), reinterpret_cast<Int64>(completionKey) );
+}
+
+AuroraIOCPAccept::AuroraIOCPAccept( UInt16 preAcceptCount ) :
+AuroraIOCP(),
+_preAcceptCount( preAcceptCount ),
+_pAcceptOverlappeds( nullptr )
+{
+	_pAcceptOverlappeds = new OverlappedExtra[_preAcceptCount];
+	ClearOverlapped();
+}
+
+AuroraIOCPAccept::~AuroraIOCPAccept()
+{
+	SafeDeleteArray( _pAcceptOverlappeds );
+}
+
+void AuroraIOCPAccept::ClearOverlapped() noexcept
+{
+	memset( _pAcceptOverlappeds, 0, sizeof( OverlappedExtra ) * _preAcceptCount );
+}
+
+OverlappedExtra* AuroraIOCPAccept::GetLastAcceptOverlappedData()
+{
+	return &_pAcceptOverlappeds[_preAcceptCount - 1];
+}
+
+AuroraIOCPSendRecv::AuroraIOCPSendRecv( UInt16 maxClientCount ) :
+AuroraIOCP(),
+_clientCount( 0 ),
+_maxClientCount( maxClientCount ),
+_pSendOverlappeds( nullptr ),
+_pRecvOverlappeds( nullptr )
+{
+	_pSendOverlappeds = new OverlappedExtra[_maxClientCount];
+	_pRecvOverlappeds = new OverlappedExtra[_maxClientCount];
+
+	ClearOverlapped();
+}
+
+AuroraIOCPSendRecv::~AuroraIOCPSendRecv()
+{
+	SafeDeleteArray( _pRecvOverlappeds );
+	SafeDeleteArray( _pSendOverlappeds );
+}
+
+void AuroraIOCPSendRecv::ClearOverlapped() noexcept
+{
+	memset( _pSendOverlappeds, 0, sizeof( OverlappedExtra ) * _maxClientCount );
+	memset( _pRecvOverlappeds, 0, sizeof( OverlappedExtra ) * _maxClientCount );
+}
+
+void AuroraIOCPSendRecv::IncreaseClientCount( void )
+{
+	if( true == IsMaxClients() )
+	{
+		return;
+	}
+
+	++_clientCount;
+}
+
+void AuroraIOCPSendRecv::DecreaseClientCount( void )
+{
+	--_clientCount;
+	if( 0 > _clientCount )
+	{
+		_clientCount = 0;
+	}
+}
+
+OverlappedExtra* AuroraIOCPSendRecv::GetLastRecvOverlappedData()
 { 
-	return &m_SendOverlappeds[(_clientCount - 1)]; 
+	return &_pRecvOverlappeds[_clientCount]; 
+}
+
+OverlappedExtra* AuroraIOCPSendRecv::GetLastSendOverlappedData()
+{ 
+	return &_pSendOverlappeds[(_clientCount - 1)]; 
+}
+
+bool AuroraIOCPSendRecv::IsMaxClients() noexcept
+{
+	return _maxClientCount <= _clientCount;
 }

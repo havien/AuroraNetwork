@@ -1,15 +1,13 @@
 #pragma once
 
-#include "../AuroraUtility/Includes.h"
-#include "../AuroraUtility/AuroraDefine.h"
+#include "../Utility/Includes.h"
+#include "../Utility/AuroraDefine.h"
 #include "Includes.h"
 
 namespace Aurora
 {
 	namespace Network
 	{
-		const UInt16 MAX_CLIENT_COUNT = 15000;
-
 		enum class EOverlappedOperation : Byte
 		{
 			None = 0,
@@ -18,27 +16,27 @@ namespace Aurora
 			Send,
 			RecvFrom,
 			SendTo,
-			ShutdownIOCP,
+			Shutdown,
 			Max,
 		};
 
 		struct IOCPData
 		{
 			SOCKET socket;
-			char buffer[SUPER_BUFFER_LEN];
+			char buffer[BIGGER_BUFFER_LEN];
 
-			IOCPData( const SOCKET pSocket );
-			~IOCPData( void );
+			explicit IOCPData( const SOCKET pSocket );
+			~IOCPData();
 
-			void Clear( void );
+			void Clear();
 		};
 
 		struct OverlappedExtra
 		{
-			OverlappedExtra( void );
-			~OverlappedExtra( void );
+			explicit OverlappedExtra();
+			~OverlappedExtra();
 
-			void Reset( void );
+			void Reset();
 			
 			OVERLAPPED Overlapped;
 			WSABUF WSABuffer;
@@ -58,36 +56,64 @@ namespace Aurora
 		class AuroraIOCP
 		{
 		public:
-			AuroraIOCP( void );
-			~AuroraIOCP( void );
+			explicit AuroraIOCP();
+			virtual ~AuroraIOCP();
 		public:
-			void IncreaseClientCount( void );
-			void DecreaseClientCount( void );
-			void ClearOverlapped( void );
+			virtual void ClearOverlapped() noexcept = 0;
 
 			// Create only an completion port without associating it with a file _handle.
 			bool CreateIOCP( DWORD ThreadCount );
 
 			// Associate an existing completion port with a file _handle.
-			bool Associate( HANDLE associateHandle, UInt64 completionKey );
-			bool Associate( SOCKET associateSocket, UInt64 completionKey );
+			bool Associate( const HANDLE& associateHandle, const Int64& completionKey );
+			bool Associate( const SOCKET& associateSocket, const Int64& completionKey );
+			bool Associate( const SOCKET& associateSocket, const HANDLE& completionKey );
 
-			OverlappedExtra* GetLastRecvOverlappedData( void );
-			OverlappedExtra* GetLastSendOverlappedData( void );
+			bool IsMaxClients();
 
-			inline bool IsCreatedIOCP( void ) const { return _created; }
-			inline const HANDLE GetIOCPHandle( void ) const { return _handle; }
-			inline const UInt16 GetClientCount( void ) const { return _clientCount; }
+			inline bool IsCreatedIOCP() const noexcept { return _created; }
+			inline const HANDLE GetIOCPHandle() const noexcept { return _handle; }
 		private:
 			HANDLE _handle;
 			bool _created;
-			UInt16 _clientCount;
+		};
 
-			OverlappedExtra m_RecvOverlappeds[MAX_CLIENT_COUNT];
-			OverlappedExtra m_SendOverlappeds[MAX_CLIENT_COUNT];
+		class AuroraIOCPAccept : public AuroraIOCP
+		{
+		public:
+			explicit AuroraIOCPAccept( UInt16 preAcceptCount );
+			~AuroraIOCPAccept();
+		public:
+			virtual void ClearOverlapped() noexcept;
+			OverlappedExtra* GetLastAcceptOverlappedData();
+		private:
+			UInt16 _preAcceptCount;
+			OverlappedExtra* _pAcceptOverlappeds;
+		};
 
-			/*CQueue<OverlappedExtra *> m_RecvOverlappeds;
-			CQueue<OverlappedExtra *> m_SendOverlapppedQueue;*/
+		class AuroraIOCPSendRecv : public AuroraIOCP
+		{
+		public:
+			explicit AuroraIOCPSendRecv( UInt16 maxClientCount );
+			~AuroraIOCPSendRecv();
+		public:
+			virtual void ClearOverlapped() noexcept;
+
+			void IncreaseClientCount();
+			void DecreaseClientCount();
+
+			OverlappedExtra* GetLastRecvOverlappedData();
+			OverlappedExtra* GetLastSendOverlappedData();
+
+			bool IsMaxClients() noexcept;
+
+			inline const UInt16 GetClientCount() const { return _clientCount; }
+		private:
+			Int16 _clientCount;
+			Int16 _maxClientCount;
+
+			OverlappedExtra* _pSendOverlappeds;
+			OverlappedExtra* _pRecvOverlappeds;
 		};
 	}
 }

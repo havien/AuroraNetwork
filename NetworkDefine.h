@@ -1,14 +1,14 @@
 #pragma once
-#include "../AuroraUtility/AuroraDefine.h"
+#include "../Utility/AuroraDefine.h"
 
 namespace Aurora
 {
 	namespace Network
 	{
-		enum class EProtocol : Byte
+		enum class EProtocol : Int32
 		{
-			TCP = 0,
-			UDP,
+			TCP = 6, // IPPROTO_TCP
+			UDP = 17, // IPPROTO_UDP
 			Max,
 		};
 
@@ -57,19 +57,18 @@ namespace Aurora
 		const UInt16 PACKET_HEADER_SIZE = 8;
 		const UInt16 MAX_CLIENT_EVENT_COUNT = 1;
 
-		const UInt16 MAX_IPV4_IP_LEN = 14 + 1;
-		const UInt16 MAX_IPV6_IP_LEN = 26 + 1;
-		const UInt16 NORMAL_BUFFER_LEN = 1024 + 1;
-		const UInt16 BIG_BUFFER_LEN = (NORMAL_BUFFER_LEN << 2);
-		const UInt16 SUPER_BUFFER_LEN = (BIG_BUFFER_LEN << 2);
+		constexpr UInt16 MAX_IPV4_IP_LEN = 14 + 1;
+		constexpr UInt16 MAX_IPV6_IP_LEN = 26 + 1;
+		const UInt16 NORMAL_BUFFER_LEN = 512;
+		const UInt16 BIG_BUFFER_LEN = (NORMAL_BUFFER_LEN << 1);
+		const UInt16 BIGGER_BUFFER_LEN = (BIG_BUFFER_LEN << 2);
 
-		const UInt16 MAX_BUFFER_LEN = SUPER_BUFFER_LEN;
+		const UInt16 MAX_BUFFER_LEN = BIGGER_BUFFER_LEN;
 
 		const UInt16 MAX_PACKET_SIZE = 1024;
 		const UInt16 MAX_RECEIVE_BUFFER_SIZE = 8192;
 
 		// buffer size.
-		const UInt16 DEFAULT_SERVER_PORT = 19577;
 		const UInt16 SEND_BUFFER_QUEUE_SIZE = 256;
 		const UInt16 CONCURRENT_PROCESS_PACKET_COUNT = 1024;
 	}

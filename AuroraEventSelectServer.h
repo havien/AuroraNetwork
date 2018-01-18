@@ -1,6 +1,6 @@
 #pragma once
-#include "../AuroraUtility/AuroraDefine.h"
-#include "../AuroraUtility/Queue.h"
+#include "../Utility/AuroraDefine.h"
+#include "../Utility/Queue.h"
 
 #include "Includes.h"
 
@@ -15,7 +15,7 @@ namespace Aurora
 		{
 		public:
 			EventSelectServer( const SOCKET* pSocket );
-			~EventSelectServer( void );
+			~EventSelectServer();
 		private:
 			bool _echoMode;
 			WSAEVENT _eventObject;
@@ -27,20 +27,20 @@ namespace Aurora
 			static UInt32 __stdcall ReadWriteDataUseEventSelect( void* pArgs );
 
 			void SetClientData( const Int32 &EventCount, const SOCKET GetSocket, const WSAEVENT rEvent );
-			void SetAcceptData( const Int32 &EventCount, const SOCKET *pSocket, const WSAEVENT rEvent );
+			void SetAcceptData( const Int32 &EventCount, const SOCKET* pSocket, const WSAEVENT rEvent );
 
-			void IncreaseReadWriteClientCount( void );
-			void DecreaseReadWriteClientCount( void );
+			void IncreaseReadWriteClientCount();
+			void DecreaseReadWriteClientCount();
 
-			void RemoveClientData( EventSelectClientData *pClientData, const Int32 Position );
+			void RemoveClientData( EventSelectClientData* pClientData, const Int32 Position );
 
 			// increase/decrease count.
-			void DecreaseAcceptedClientCount( void );	
+			void DecreaseAcceptedClientCount();	
 
-			inline EventSelectClientData* GetClientData( void ) { return &_clientData; }
-			inline EventSelectClientData* GetAcceptData( void ) { return &_acceptData; }
+			inline EventSelectClientData* GetClientData(){ return &_clientData; }
+			inline EventSelectClientData* GetAcceptData(){ return &_acceptData; }
 
-			inline void SetRecvBufferQueue( CQueue<char*> *pRecvBufferQueue )
+			inline void SetRecvBufferQueue( CQueue<char*>* pRecvBufferQueue )
 			{
 				if( pRecvBufferQueue )
 				{
@@ -48,20 +48,20 @@ namespace Aurora
 				}
 			}
 
-			inline CQueue<char*>* GetRecvBufferQueue( void ) const
+			inline CQueue<char*>* GetRecvBufferQueue() const
 			{
 				return _pRecvBufferQueue;
 			}
 
-			inline const bool GetEchoMode( void ) const { return _echoMode; }
+			inline const bool GetEchoMode() const { return _echoMode; }
 			inline void SetEchoMode( bool echoMode ) { _echoMode = echoMode; }
 
-			inline const bool IsVeryFirstAccept( void ) { return _veryFirstAccept; }
-			inline void EndFirstAccept( void ) { _veryFirstAccept = false; }
+			inline const bool IsVeryFirstAccept(){ return _veryFirstAccept; }
+			inline void EndFirstAccept(){ _veryFirstAccept = false; }
 
 			// Stop Threads.
-			inline void StopAcceptThread( void ) { _runningAcceptThread = false; }
-			inline void StopReadWriteThread( void ) { _runningReadWriteThread = false; }
+			inline void StopAcceptThread(){ _runningAcceptThread = false; }
+			inline void StopReadWriteThread(){ _runningReadWriteThread = false; }
 			
 			HANDLE _targetWakeupThread;
 		private:
